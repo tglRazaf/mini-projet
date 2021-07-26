@@ -1,12 +1,40 @@
+const { json } = require('body-parser')
 const express = require('express')
 const router = express.Router()
 const db = require('../config/database')
-const createDb = require('../config/dbCreation')
 const User = require("../models/User")
 
-router.get('/filiere/lists/:id', function (req, res) {
-    //req.params.id : l'id ajouté depuis la requete get avec axios
-    db.query(`SELECT filiere.idFiliere, brancheFiliere.nom_branche, filiere.nom_filiere FROM filiere LEFT OUTER JOIN brancheFiliere ON brancheFiliere.idFiliere = filiere.idFiliere WHERE nom_branche = '${req.params.id}';`, function (err, rows) {
+let findBranch = function (req) {
+    if(req.body.filiere === 'isaia' || req.body.filiere === 'esiia' || req.body.filiere === 'igglia' || req.body.filiere === 'imticia')
+        return 'informatique'    
+        else if(req.body.filiere === 'emp' || req.body.filiere === 'fic' || req.body.filiere === 'dtga' || req.body.filiere === 'teh')
+            return 'tertiaire'
+            else
+                return 'industrielle'
+}
+
+router.get('/filiere/lists/:branche', function (req, res) {
+    db.query(`SELECT filieres.idFiliere, filieres.nom_filiere, brancheFilieres.nom_branche FROM filieres RIGHT OUTER JOIN brancheFilieres ON filieres.idBranche = brancheFilieres.idBranche WHERE brancheFilieres.nom_branche = '${req.params.branche}';`, function (err, rows) {
+        (err)? console.log(err) : res.send(rows)
+    })
+})
+
+router.get('/all/:table', function(req, res){
+    db.query(`SELECT * FROM ${req.params.table}`, function (err, rows) {
+        (err)? console.log(err) : res.send(rows)
+    })
+})
+
+// router.get('/filiere/count/:nom/:annee', function (req, res) {
+//     console.log(req.params);
+//     db.query(`SELECT COUNT(*) AS nombre FROM eleves WHERE idFiliere = (SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.params.nom}')AND eleves.niveau =${req.params.annee}`, function (err, count) {
+//         (err)? console.log(err) : res.send(count)
+//     })
+// })
+
+router.get('/filiere/count/:nom/:annee', function (req, res) {
+    console.log(req.params);
+    db.query(`SELECT matricule, nom, prenom, tel_eleve, tel_eleve2 FROM eleves WHERE idFiliere = (SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.params.nom}')AND eleves.niveau =${req.params.annee}`, function (err, rows) {
         (err)? console.log(err) : res.send(rows)
     })
 })
@@ -18,46 +46,73 @@ router.get('/eleves/list', function(req, res){
     })
 })
 
-router.get('/removeAll/data', function (req, res) {
-    db.query('DELETE brancheFiliere FROM brancheFiliere;', function (err, rows) {
-        if(err) console.log('error 1: ' + err)
-        else db.query('DELETE filiere FROM filiere;', function (error, row) {
-            if(error) console.log('error 2: ' + error)
-            else db.query('DELETE eleve FROM eleve;', function (errors, data) {
-                if(errors) console.log('error 3: ' + errors)
-                res.send(data)
-            })
-        })
-    })
-})
 
 router.post('/inscription', async function(req, res){
-    createDb();
     res.setHeader('Access-Control-Allow-Origin', '*')
     if (req.method === 'OPTIONS' || req.method === 'POST') {
         res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type');
     }
     let utilisateur = new User(req.body.nom, req.body.prenom, req.body.date_de_naissance, req.body.niveau, req.body.past_ecole, req.body.tel_eleve, req.body.tel_eleve2, req.body.address_eleve, req.body.e_mail, req.body.nom_pere, req.body.tel_pere, req.body.nom_mere, req.body.tel_mere, req.body.address_parent)
-    db.query(`INSERT INTO eleve values(0,'${utilisateur.nom}', '${utilisateur.prenom}', '${utilisateur.date_de_naissance}', ${utilisateur.niveau}, '${utilisateur.past_ecole}', '${utilisateur.tel_eleve}', '${utilisateur.tel_eleve2}', '${utilisateur.address_eleve}', '${utilisateur.e_mail}', '${utilisateur.nom_pere}', '${utilisateur.tel_pere}', '${utilisateur.nom_mere}', '${utilisateur.tel_mere}', '${utilisateur.address_parent}')`, function(err, rows){
-        if(err) throw err
-        else {
-            db.query(`INSERT INTO filiere VALUES(0, '${req.body.filiere}', ${rows.insertId})`, function(error, row){
-                //(idFiliere, nomFiliere, #idEleve)
-                //rows.insertId : id de la derniere élève ajouté
-                if(error) throw error
-                else{
-                    if(req.body.filiere === 'isaia' || req.body.filiere === 'esiia' || req.body.filiere === 'igglia' || req.body.filiere === 'imticia'){
-                        db.query(`INSERT INTO brancheFiliere VALUES (0, 'informatique', ${row.insertId})`)//(idBranche, nomBranch, #idFiliere)
-                    }   else if(req.body.filiere === 'emp' || req.body.filiere === 'fic' || req.body.filiere === 'dtga' || req.body.filiere === 'teh'){
-                            db.query(`INSERT INTO brancheFiliere VALUES (0, 'tertiaire', ${row.insertId})`)//row.insertId : id de la derniere filiere inserée
-                    }   else{
-                            db.query(`INSERT INTO brancheFiliere VALUES (0, 'industrielle', ${row.insertId})`)  
-                    }
+    db.query(`SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.body.filiere}'`, function (err, result) {
+        console.log(JSON.stringify(result))
+        if(err) console.log('error to find id ', err)
+        else{ 
+            db.query(`
+                INSERT INTO eleves(nom, prenom, date_de_naissance, niveau, past_ecole, tel_eleve, tel_eleve2, address_eleve, e_mail, nom_pere, tel_pere, nom_mere, tel_mere, address_parent, idFiliere) values(
+                    '${utilisateur.nom}', 
+                    '${utilisateur.prenom}', 
+                    '${utilisateur.date_de_naissance}', 
+                    ${utilisateur.niveau}, 
+                    '${utilisateur.past_ecole}', 
+                    '${utilisateur.tel_eleve}', 
+                    '${utilisateur.tel_eleve2}', 
+                    '${utilisateur.address_eleve}', 
+                    '${utilisateur.e_mail}', 
+                    '${utilisateur.nom_pere}', 
+                    '${utilisateur.tel_pere}', 
+                    '${utilisateur.nom_mere}', 
+                    '${utilisateur.tel_mere}',
+                    '${utilisateur.address_parent}', 
+                    ${result[0].idFiliere}
+                )`, 
+                function (error, rows) {
+                    if(err) console.log('eleve insertion ' + error);
+                    else console.log('Every thing is ok!!')
                 }
-            })
+            )
         }
     })
-    res.send(req.body)
+
+})
+
+
+router.post('/add/branche', function (req, res) {
+    db.query(`SELECT nom_branche FROM brancheFilieres WHERE nom_branche = '${req.body.nomBranche}'`, function (erreur, results) {
+        if(erreur) console.log('checking if this branche exist : ' + erreur)
+        else if(results.length < 1){
+            res.setHeader('Access-Control-Allow-Origin', '*')
+            if (req.method === 'OPTIONS' || req.method === 'POST') {
+                res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type');
+            }
+            db.query(`INSERT INTO brancheFilieres VALUES (0, '${req.body.nomBranche}')`, function (err, rows) {
+                if(err) console.log('branche insertion ' + err);
+                else{
+                    for (let i = 0; i < req.body.filieres.length; i++) {
+                        db.query(`INSERT INTO filieres VALUES(0, '${req.body.filieres[i]}', ${rows.insertId})`,
+                            function(error, row){
+                                (error)? console.log('filiere insertion ' + error): console.log(row.insertId);
+                            }
+                        )
+                    }   
+                }
+            })
+        }   else res.send(req.body.nomBranche)
+    })
 })
 
 module.exports = router
+
+
+
+
+
