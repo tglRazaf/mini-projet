@@ -14,7 +14,8 @@ let findBranch = function (req) {
 }
 
 router.get('/filiere/lists/:branche', function (req, res) {
-    db.query(`SELECT filieres.idFiliere, filieres.nom_filiere, brancheFilieres.nom_branche FROM filieres RIGHT OUTER JOIN brancheFilieres ON filieres.idBranche = brancheFilieres.idBranche WHERE brancheFilieres.nom_branche = '${req.params.branche}';`, function (err, rows) {
+    db.query(`SELECT filieres.idFiliere, filieres.nom_filiere, brancheFilieres.idBranche, brancheFilieres.nom_branche FROM filieres RIGHT OUTER JOIN brancheFilieres ON filieres.idBranche = brancheFilieres.idBranche WHERE brancheFilieres.nom_branche = '${req.params.branche}';`, function (err, rows) {
+        console.log(rows);
         (err)? console.log(err) : res.send(rows)
     })
 })
@@ -25,12 +26,6 @@ router.get('/all/:table', function(req, res){
     })
 })
 
-// router.get('/filiere/count/:nom/:annee', function (req, res) {
-//     console.log(req.params);
-//     db.query(`SELECT COUNT(*) AS nombre FROM eleves WHERE idFiliere = (SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.params.nom}')AND eleves.niveau =${req.params.annee}`, function (err, count) {
-//         (err)? console.log(err) : res.send(count)
-//     })
-// })
 
 router.get('/filiere/count/:nom/:annee', function (req, res) {
     console.log(req.params);
@@ -94,7 +89,7 @@ router.post('/add/branche', function (req, res) {
             if (req.method === 'OPTIONS' || req.method === 'POST') {
                 res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type');
             }
-            db.query(`INSERT INTO brancheFilieres VALUES (0, '${req.body.nomBranche}')`, function (err, rows) {
+            db.query(`INSERT INTO brancheFilieres VALUES (0, '${req.body.nomBranche}', NOW())`, function (err, rows) {
                 if(err) console.log('branche insertion ' + err);
                 else{
                     for (let i = 0; i < req.body.filieres.length; i++) {
@@ -107,6 +102,40 @@ router.post('/add/branche', function (req, res) {
                 }
             })
         }   else res.send(req.body.nomBranche)
+    })
+})
+
+router.post('/add/filiere', function (req, res) {
+    console.log(req.body);
+    db.query(`INSERT INTO filieres VALUES (0, '${req.body.nom_filiere}', ${req.body.idBranche})`, function (err, rows) {
+        if(err) console.log('Insert filiere : ' + erreur)
+        res.send(req.body)
+    })
+})
+
+router.post('/delete/filiere', function (req, res) {
+    console.log(req.body);
+    db.query(`DELETE filieres FROM filieres WHERE idFiliere = ${req.body.idFiliere}`, function (err, rows) {
+        if(err) console.log('delete filiere : ' + erreur)
+        res.send(req.body)
+    })
+})
+
+router.post('/eleve/payement', function (req, res) {
+    db.query(`SELECT matricule FROM eleves WHERE matricule = ${req.body.matricule_eleve}`, function (error, result) {
+        console.log(result);
+        if(error) console.log('find eleve matricule ', error);        
+        else if(result.length != 1){
+            res.json({
+                "err": "cette matricule n'existe pas"
+            })
+        }   else{
+            console.log(req.body)
+            db.query(`INSERT INTO payements VALUES(0, '${req.body.nom}', ${req.body.somme_payee}, ${req.body.somme_restante}, NOW(), ${req.body.annee_scolaire}, ${req.body.matricule_eleve})`, function (err, rows) {
+                if(err) console.log('delete filiere : ' + err)
+                res.send(req.body)
+            })
+        }
     })
 })
 
