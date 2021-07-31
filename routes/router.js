@@ -13,8 +13,19 @@ let findBranch = function (req) {
                 return 'industrielle'
 }
 
-router.get('/filiere/lists/:branche', function (req, res) {
+router.get('/filiere/lists/utile/:branche', function (req, res) {
     db.query(`SELECT filieres.idFiliere, filieres.nom_filiere, brancheFilieres.idBranche, brancheFilieres.nom_branche FROM filieres RIGHT OUTER JOIN brancheFilieres ON filieres.idBranche = brancheFilieres.idBranche WHERE brancheFilieres.nom_branche = '${req.params.branche}';`, function (err, rows) {
+        console.log(rows);
+        (err)? console.log(err) : res.send(rows)
+    })
+})
+
+router.get('/notes/eleve/:id', function (req, res) {
+    db.query(``)
+})
+
+router.get('/filiere/lists/:branche/:niveau', function (req, res) {
+    db.query(`SELECT filieres.idFiliere, nom_filiere, COUNT(*) AS nombre_eleve FROM filieres RIGHT OUTER JOIN eleves ON filieres.idFiliere = eleves.idFiliere WHERE eleves.niveau = ${req.params.niveau} AND filieres.idBranche = (SELECT idBranche FROM brancheFilieres WHERE nom_branche = '${req.params.branche}') GROUP BY idFiliere HAVING COUNT(*)>=0;`, function (err, rows) {
         console.log(rows);
         (err)? console.log(err) : res.send(rows)
     })
@@ -29,7 +40,7 @@ router.get('/all/:table', function(req, res){
 
 router.get('/filiere/count/:nom/:annee', function (req, res) {
     console.log(req.params);
-    db.query(`SELECT matricule, nom, prenom, tel_eleve, tel_eleve2 FROM eleves WHERE idFiliere = (SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.params.nom}')AND eleves.niveau =${req.params.annee}`, function (err, rows) {
+    db.query(`SELECT matricule, nom, prenom, tel_eleve, tel_eleve2, COUNT(payements.matricule_eleve) AS nombre_payement FROM eleves LEFT OUTER JOIN payements ON eleves.matricule = payements.matricule_eleve WHERE eleves.niveau = ${req.params.annee} AND eleves.idFiliere = (SELECT idFiliere FROM filieres WHERE nom_filiere = '${req.params.nom}') GROUP BY eleves.matricule`, function (err, rows) {
         (err)? console.log(err) : res.send(rows)
     })
 })
